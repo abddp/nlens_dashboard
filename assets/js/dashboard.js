@@ -1212,8 +1212,6 @@
                     ['publish-rate', 'payment-rate', 'shipping-rate'].forEach(p => setChartError(p, err.message));
                 });
         }
-
-        }
     }
 
     function redrawAllCharts() {
