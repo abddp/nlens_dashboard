@@ -14,6 +14,7 @@ EXEMPT_PREFIXES = (
     "/login/",
     "/api/auth/login/",
     "/robots.txt",
+    "/.well-known/",
     settings.STATIC_URL,
     "/favicon.ico",
 )
