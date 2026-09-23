@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 EXEMPT_PREFIXES = (
     "/login/",
     "/api/auth/login/",
+    "/robots.txt",
     settings.STATIC_URL,
     "/favicon.ico",
 )
@@ -38,6 +39,12 @@ class InternalAuthMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        response = self._handle_request(request)
+        response["X-Robots-Tag"] = "noindex, nofollow, noarchive, nosnippet, noimageindex"
+        response["Referrer-Policy"] = "no-referrer"
+        return response
+
+    def _handle_request(self, request):
         path = request.path_info
 
         # Redirect to home if already authenticated user accesses /login/

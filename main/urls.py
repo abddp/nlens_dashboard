@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    robots_txt,
     login_view,
     home,
     finance,
@@ -15,6 +16,7 @@ from .auth_api_views import (
 )
 from .api_views import (
     SignupsKpiView,
+    CreatedShopsKpiView,
     PayingStoresKpiView,
     PayingUsersKpiView,
     SessionsKpiView,
@@ -35,10 +37,12 @@ from .api_views import (
     GeoDistributionKpiView,
     TimeToValueKpiView,
     OnboardingRatesKpiView,
-    PaymentMethodsKpiView,
 )
 
 urlpatterns = [
+    # SEO / Crawlers disallow
+    path("robots.txt", robots_txt, name="robots-txt"),
+
     # Auth & Pages HTML
     path("login/", login_view, name="login"),
     path("", home, name="home"),
@@ -55,6 +59,7 @@ urlpatterns = [
 
     # KPIs API
     path("api/kpis/signups/", SignupsKpiView.as_view(), name="kpi-signups"),
+    path("api/kpis/created-shops/", CreatedShopsKpiView.as_view(), name="kpi-created-shops"),
     path("api/kpis/paying-stores/", PayingStoresKpiView.as_view(), name="kpi-paying-stores"),
     path("api/kpis/paying-users/", PayingUsersKpiView.as_view(), name="kpi-paying-users"),
     path("api/kpis/sessions/", SessionsKpiView.as_view(), name="kpi-sessions"),
@@ -75,5 +80,4 @@ urlpatterns = [
     path("api/kpis/geo-distribution/", GeoDistributionKpiView.as_view(), name="kpi-geo-distribution"),
     path("api/kpis/time-to-value/", TimeToValueKpiView.as_view(), name="kpi-time-to-value"),
     path("api/kpis/onboarding-rates/", OnboardingRatesKpiView.as_view(), name="kpi-onboarding-rates"),
-    path("api/kpis/payment-methods/", PaymentMethodsKpiView.as_view(), name="kpi-payment-methods"),
 ]

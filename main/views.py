@@ -1,4 +1,9 @@
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
+
+
+def robots_txt(request):
+    return HttpResponse("User-agent: *\nDisallow: /\n", content_type="text/plain")
 
 
 def login_view(request):

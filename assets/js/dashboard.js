@@ -37,8 +37,7 @@
         ttvShipping: null,
         publishRate: null,
         paymentRate: null,
-        shippingRate: null,
-        paymentMethods: null
+        shippingRate: null
     };
 
     function formatNumber(num) {
@@ -229,7 +228,7 @@
     }
 
     function setAllSkeletons() {
-        ['revenue', 'users', 'paying-stores', 'paying-users', 'churn', 'feedback', 'time-spent', 'ai-credits'].forEach(k => {
+        ['revenue', 'users', 'paying-stores', 'paying-users', 'churn', 'feedback', 'time-spent', 'ai-credits', 'created-shops'].forEach(k => {
             if (document.getElementById(`kpi-val-${k}`) || document.querySelector(`[data-kpi="${k}"]`)) {
                 setKpiSkeleton(k);
             }
@@ -238,9 +237,9 @@
         const charts = [
             'mrr', 'arr', 'paying-stores', 'paying-users', 'signups', 'sessions',
             'active-users', 'active-stores', 'activation', 'churn', 'retention',
-            'ai-usage', 'ai-categories', 'top-pages', 'business-models', 'devices', 'geo-distribution',
+            'created-shops', 'ai-usage', 'ai-categories', 'top-pages', 'business-models', 'devices', 'geo-distribution',
             'ttv-product', 'publish-rate', 'ttv-storefront', 'ttv-publish',
-            'payment-rate', 'payment-methods', 'ttv-payment', 'shipping-rate', 'ttv-shipping'
+            'payment-rate', 'ttv-payment', 'shipping-rate', 'ttv-shipping'
         ];
         charts.forEach(p => {
             if (document.getElementById(`${p}-chart-container`)) {
@@ -924,7 +923,63 @@
                 });
         }
 
-        // 15. AI Categories (Donut Chart)
+        // 15. Boutiques Créées (Hero Card & Line Chart)
+        if (isNeeded('created-shops', 'created-shops-chart-container')) {
+            fetchKpiData('/api/kpis/created-shops/', dateParams)
+                .then(data => {
+                    chartDataCache.createdShops = {
+                        title: 'Boutiques Créées',
+                        meaning: 'Nombre de nouvelles boutiques créées sur la plateforme sur la période.',
+                        formula: 'COUNT(*) FROM shops GROUP BY created_on__date',
+                        source: 'shops',
+                        total: data.total,
+                        prevTotal: data.previous_total,
+                        trend: data.trend || [],
+                        prevTrend: data.previous_trend || [],
+                        valueKey: 'count',
+                        label: 'Boutiques créées',
+                        since: data.since || currentSince,
+                        until: data.until || currentUntil,
+                        prevSince: data.prev_since || currentPrevSince,
+                        prevUntil: data.prev_until || currentPrevUntil,
+                        granularity: data.granularity || 'day'
+                    };
+
+                    // Hero Card
+                    const shopVar = NealensCharts.formatVariation(data.total, data.previous_total);
+                    const shopVarColor = shopVar.isNeutral ? 'text-[var(--text-faint)]' : (shopVar.isPositive ? 'text-emerald-400' : 'text-red-400');
+                    setKpiValue('created-shops', `${formatNumber(data.total)}`, `<span class="${shopVarColor}">${shopVar.text}</span>`);
+
+                    // Sparkline on KPI card
+                    const fullShopSeries = NealensCharts.generateDateRangeSeries(data.trend, currentSince, currentUntil, 'count', 0, data.granularity);
+                    if (fullShopSeries && fullShopSeries.length > 0) {
+                        NealensCharts.renderSparkline('sparkline-created-shops', fullShopSeries.map(t => t.count || 0));
+                    }
+
+                    // Dedicated Line Chart
+                    const headline = document.getElementById('created-shops-chart-headline');
+                    if (headline) headline.textContent = `${formatNumber(data.total)} boutiques créées`;
+                    updateVariationBadge('created-shops-chart-variation', data.total, data.previous_total);
+
+                    setChartLoaded('created-shops');
+                    NealensCharts.renderLineChart('created-shops-chart-container', data.trend, 'count', {
+                        label: 'Boutiques créées',
+                        since: currentSince,
+                        until: currentUntil,
+                        prevSince: currentPrevSince,
+                        prevUntil: currentPrevUntil,
+                        prevTrend: data.previous_trend,
+                        granularity: data.granularity
+                    });
+                })
+                .catch(err => {
+                    console.error('Created Shops error:', err);
+                    setKpiError('created-shops', err.message);
+                    setChartError('created-shops', err.message);
+                });
+        }
+
+        // 16. AI Categories (Donut Chart)
         if (isNeeded('ai-categories-chart-container')) {
             fetchKpiData('/api/kpis/ai-categories/', dateParams)
                 .then(data => {
@@ -982,7 +1037,7 @@
 
         // 17. Business Models (Donut Chart)
         if (isNeeded('business-models-chart-container')) {
-            fetchKpiData('/api/kpis/business-models/')
+            fetchKpiData('/api/kpis/business-models/', dateParams)
                 .then(data => {
                     chartDataCache.businessModels = {
                         title: 'Modèles Économiques des Boutiques',
@@ -1036,7 +1091,7 @@
 
         // 19. Geo Distribution: Paid vs Non-Paying (Grouped Horizontal Bars)
         if (isNeeded('geo-distribution-chart-container')) {
-            fetchKpiData('/api/kpis/geo-distribution/')
+            fetchKpiData('/api/kpis/geo-distribution/', dateParams)
                 .then(data => {
                     chartDataCache.geoDistribution = {
                         title: 'Répartition Géographique (Payants vs Gratuits)',
@@ -1063,7 +1118,7 @@
 
         // 20. Time-to-Value Metrics (5 Histograms: Product, Storefront, Publish, Payment, Shipping)
         if (isNeeded('ttv-product-chart-container', 'ttv-storefront-chart-container', 'ttv-publish-chart-container', 'ttv-payment-chart-container', 'ttv-shipping-chart-container')) {
-            fetchKpiData('/api/kpis/time-to-value/')
+            fetchKpiData('/api/kpis/time-to-value/', dateParams)
                 .then(data => {
                     const ttvConfig = [
                         { key: 'product', chartPrefix: 'ttv-product', cacheKey: 'ttvProduct', unitSuffix: 'boutiques' },
@@ -1080,17 +1135,17 @@
                         chartDataCache[cfg.cacheKey] = {
                             title: item.title,
                             meaning: item.meaning,
-                            formula: 'MIN(event_time) - shop_created_time',
-                            source: 'user_session_events ⨝ shops',
+                            formula: 'AVG(first_target_event_time - create_store_event_time)',
+                            source: 'user_session_events (create_store -> target event)',
                             isHistogram: true,
-                            medianHours: item.median_hours,
-                            formattedMedian: item.formatted_median,
+                            avgHours: item.avg_hours,
+                            formattedAvg: item.formatted_avg,
                             totalCompleted: item.total_completed,
                             buckets: item.buckets || []
                         };
 
                         const headline = document.getElementById(`${cfg.chartPrefix}-chart-headline`);
-                        if (headline) headline.textContent = `Délai médian : ${item.formatted_median} (${formatNumber(item.total_completed)} ${cfg.unitSuffix})`;
+                        if (headline) headline.textContent = `Temps moyen : ${item.formatted_avg} (${formatNumber(item.total_completed)} ${cfg.unitSuffix})`;
 
                         setChartLoaded(cfg.chartPrefix);
                         NealensCharts.renderHistogramChart(`${cfg.chartPrefix}-chart-container`, item.buckets);
@@ -1158,30 +1213,6 @@
                 });
         }
 
-        // 22. Payment Methods Distribution (Donut Chart)
-        if (isNeeded('payment-methods-chart-container')) {
-            fetchKpiData('/api/kpis/payment-methods/', dateParams)
-                .then(data => {
-                    chartDataCache.paymentMethods = {
-                        title: 'Répartition des Moyens de Paiement',
-                        meaning: 'Types de passerelles et moyens de paiement activés par les marchands.',
-                        formula: "COUNT(*) WHERE event_type = 'add_payment_method' GROUP BY provider",
-                        source: 'user_session_events',
-                        isDonut: true,
-                        total: data.total,
-                        methods: data.methods || []
-                    };
-
-                    const headline = document.getElementById('payment-methods-chart-headline');
-                    if (headline) headline.textContent = `${formatNumber(data.total)} configurations de paiement`;
-
-                    setChartLoaded('payment-methods');
-                    NealensCharts.renderDonutChart('payment-methods-chart-container', data.methods, { centerLabel: 'MOYENS' });
-                })
-                .catch(err => {
-                    console.error('Payment Methods error:', err);
-                    setChartError('payment-methods', err.message);
-                });
         }
     }
 
@@ -1211,7 +1242,6 @@
         if (chartDataCache.aiCategories) NealensCharts.renderDonutChart('ai-categories-chart-container', chartDataCache.aiCategories.categories, { centerLabel: 'REQUÊTES' });
         if (chartDataCache.businessModels) NealensCharts.renderDonutChart('business-models-chart-container', chartDataCache.businessModels.models, { centerLabel: 'BOUTIQUES' });
         if (chartDataCache.devices) NealensCharts.renderDonutChart('devices-chart-container', chartDataCache.devices.devices, { centerLabel: 'SESSIONS' });
-        if (chartDataCache.paymentMethods) NealensCharts.renderDonutChart('payment-methods-chart-container', chartDataCache.paymentMethods.methods, { centerLabel: 'MOYENS' });
 
         // Horizontal Bar Chart
         if (chartDataCache.topPages) NealensCharts.renderHorizontalBarChart('top-pages-chart-container', chartDataCache.topPages.pages, { unitLabel: 'vues' });
@@ -1246,8 +1276,7 @@
             'ttv-shipping': 'ttvShipping',
             'publish-rate': 'publishRate',
             'payment-rate': 'paymentRate',
-            'shipping-rate': 'shippingRate',
-            'payment-methods': 'paymentMethods'
+            'shipping-rate': 'shippingRate'
         };
         const cacheKey = keyMap[kpiKey] || kpiKey;
         const item = chartDataCache[cacheKey];
@@ -1373,8 +1402,8 @@
                     export_timestamp: new Date().toISOString()
                 },
                 summary: {
-                    median_hours: item.medianHours,
-                    formatted_median: item.formattedMedian,
+                    avg_hours: item.avgHours,
+                    formatted_avg: item.formattedAvg,
                     total_completed: item.totalCompleted
                 },
                 buckets: item.buckets || []

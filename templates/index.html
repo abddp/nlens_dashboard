@@ -15,7 +15,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {% include "components/kpi_card.html" with kpi_id="feedback" title="FEEDBACKS REÇUS" sub_unit="Retours" %}
             {% include "components/kpi_card.html" with kpi_id="time-spent" title="TEMPS MOYEN PAR SESSION" sub_unit="" %}
-            {% include "components/kpi_card.html" with kpi_id="ai-credits" title="CRÉDITS IA CONSOMMÉS" sub_unit="" %}
+            {% include "components/kpi_card.html" with kpi_id="created-shops" title="BOUTIQUES" sub_unit="Boutiques" %}
         </div>
     </div>
 
@@ -29,7 +29,7 @@
         <div class="space-y-6">
             <div class="w-full">{% include "components/chart_mrr.html" %}</div>
             <div class="w-full">{% include "components/chart_active_users.html" %}</div>
-            <div class="w-full">{% include "components/chart_ai_usage.html" %}</div>
+            <div class="w-full">{% include "components/chart_shops_created.html" %}</div>
             <div class="w-full">{% include "components/chart_signups.html" %}</div>
         </div>
     </div>

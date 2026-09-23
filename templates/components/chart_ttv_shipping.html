@@ -3,8 +3,8 @@
     <!-- Header Row -->
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-1.5">
-            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">Délai avant 1ère Zone de Livraison</h3>
-            {% include "components/kpi_info_popover.html" with meaning="Distribution du temps nécessaire pour paramétrer les zones géographiques d'expédition et tarifs de livraison." formula="MIN(created_at - shop_created_on) WHERE event = 'create_shipping_zone'" source="user_session_events ⨝ shops" %}
+            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">Temps moyen avant 1ère Zone de Livraison</h3>
+            {% include "components/kpi_info_popover.html" with meaning="Distribution du temps moyen nécessaire pour paramétrer les zones géographiques d'expédition et tarifs de livraison." formula="AVG(create_shipping_zone.created_at - create_store.created_at)" source="user_session_events" %}
         </div>
         <div class="flex items-center gap-3">
             <button type="button" data-export-kpi="ttv-shipping" class="p-1.5 rounded-lg bg-[var(--bg-card-raised)] hover:bg-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--primary-accent)] transition-colors cursor-pointer" title="Exporter les données (JSON)">

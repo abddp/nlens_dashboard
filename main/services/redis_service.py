@@ -34,3 +34,19 @@ def set_kpi_cache(cache_key: str, data: dict, ttl: int = 7200) -> None:
         logger.info("💾 Redis Cache SET: %s (TTL: %ss)", cache_key, ttl)
     except Exception as e:
         logger.warning("Redis cache write error for key %s: %s", cache_key, e)
+
+
+def clear_kpi_cache(kpi_name: str | None = None) -> int:
+    clean_name = kpi_name.strip().lower() if kpi_name else None
+    pattern = f"{APP_PREFIX}:kpi:{clean_name}:*" if clean_name else f"{APP_PREFIX}:kpi:*"
+    try:
+        keys = list(redis_client.scan_iter(match=pattern, count=100))
+        if keys:
+            deleted_count = redis_client.delete(*keys)
+            logger.info("🗑️ Redis Cache CLEARED: %d keys removed for pattern '%s'", deleted_count, pattern)
+            return deleted_count
+        logger.info("ℹ️ No Redis cache keys found matching '%s'", pattern)
+        return 0
+    except Exception as e:
+        logger.warning("Redis cache clear error for pattern %s: %s", pattern, e)
+        return 0

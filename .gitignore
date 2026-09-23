@@ -14,3 +14,7 @@ package.json
 celerybeat-schedule
 celerybeat-schedule.db
 celerybeat.pid
+
+# Logs
+logs/*
+!logs/.gitkeep

@@ -6,6 +6,30 @@ from .services import (
     build_kpi_cache_key,
     set_kpi_cache,
 )
+from .api_views import (
+    compute_signups_kpi,
+    compute_created_shops_kpi,
+    compute_paying_stores_kpi,
+    compute_paying_users_kpi,
+    compute_sessions_kpi,
+    compute_mrr_kpi,
+    compute_active_users_kpi,
+    compute_active_stores_kpi,
+    compute_activation_kpi,
+    compute_churn_kpi,
+    compute_retention_kpi,
+    compute_recent_transactions,
+    compute_feedbacks_kpi,
+    compute_time_spent_kpi,
+    compute_ai_usage_kpi,
+    compute_ai_categories_kpi,
+    compute_top_pages_kpi,
+    compute_business_models_kpi,
+    compute_devices_kpi,
+    compute_geo_distribution_kpi,
+    compute_time_to_value_kpi,
+    compute_onboarding_rates_kpi,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,31 +99,6 @@ def get_standard_periods():
 
 @shared_task(name="main.tasks.sync_all_kpis_task")
 def sync_all_kpis_task():
-    from .api_views import (
-        compute_signups_kpi,
-        compute_paying_stores_kpi,
-        compute_paying_users_kpi,
-        compute_sessions_kpi,
-        compute_mrr_kpi,
-        compute_active_users_kpi,
-        compute_active_stores_kpi,
-        compute_activation_kpi,
-        compute_churn_kpi,
-        compute_retention_kpi,
-        compute_recent_transactions,
-        compute_feedbacks_kpi,
-        compute_time_spent_kpi,
-        compute_ai_usage_kpi,
-        compute_ai_categories_kpi,
-        compute_top_pages_kpi,
-        compute_business_models_kpi,
-        compute_devices_kpi,
-        compute_geo_distribution_kpi,
-        compute_time_to_value_kpi,
-        compute_onboarding_rates_kpi,
-        compute_payment_methods_kpi,
-    )
-
     start_time = time.time()
     logger.info("Celery Beat: Starting periodic KPI cache sync (1h schedule)...")
     periods = get_standard_periods()
@@ -107,6 +106,7 @@ def sync_all_kpis_task():
 
     kpi_computations = [
         ("signups", compute_signups_kpi),
+        ("created-shops", compute_created_shops_kpi),
         ("paying-stores", compute_paying_stores_kpi),
         ("paying-users", compute_paying_users_kpi),
         ("sessions", compute_sessions_kpi),
@@ -136,6 +136,21 @@ def sync_all_kpis_task():
             except Exception as e:
                 logger.error("Error pre-caching KPI '%s' for period %s: %s", name, p["name"], e)
 
+        # Also pre-cache period-aware global modules (business models, geo distribution, ttv)
+        period_aware_globals = [
+            ("business-models", compute_business_models_kpi),
+            ("geo-distribution", compute_geo_distribution_kpi),
+            ("time-to-value", compute_time_to_value_kpi),
+        ]
+        for name, func in period_aware_globals:
+            try:
+                data = func(s, u)
+                cache_key = build_kpi_cache_key(name, s, u, g)
+                set_kpi_cache(cache_key, data, ttl=7200)
+                synced_count += 1
+            except Exception as e:
+                logger.error("Error pre-caching module '%s' for period %s: %s", name, p["name"], e)
+
     # 2. Synchronize non-period / global KPIs
     global_computations = [
         ("retention", compute_retention_kpi),
@@ -143,7 +158,6 @@ def sync_all_kpis_task():
         ("business-models", compute_business_models_kpi),
         ("geo-distribution", compute_geo_distribution_kpi),
         ("time-to-value", compute_time_to_value_kpi),
-        ("payment-methods", compute_payment_methods_kpi),
     ]
 
     for name, func in global_computations:

@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -13,6 +14,12 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+PASSIVE_EVENT_TYPES_SQL = (
+    '"login", "logout", "signup", "page_view", "switch_store", '
+    '"see_mockups", "see_storefront_preview", "upgrade_plan_modal_view", "checkout_view", '
+    '"ai_trial_credit_exhausted", "ai_credit_exhausted", "mockups_presented"'
+)
 
 
 def format_duration_fr(seconds):
@@ -121,16 +128,16 @@ def compute_signups_kpi(since, until, prev_since, prev_until, granularity):
     prev_total_data = service.query(prev_total_query)
     prev_trend_data = service.query(prev_trend_query)
 
-    total = total_data["data"][0]["total"] if total_data["data"] else 0
-    prev_total = prev_total_data["data"][0]["total"] if prev_total_data["data"] else 0
+    total = total_data["data"][0]["total"] if total_data.get("data") else 0
+    prev_total = prev_total_data["data"][0]["total"] if prev_total_data.get("data") else 0
 
     raw_trend = [
         {"day": row["joined_on__date"], "count": row["total_signups"]}
-        for row in trend_data["data"]
+        for row in trend_data.get("data", [])
     ]
     raw_prev_trend = [
         {"day": row["joined_on__date"], "count": row["total_signups"]}
-        for row in prev_trend_data["data"]
+        for row in prev_trend_data.get("data", [])
     ]
 
     trend = aggregate_trend(raw_trend, "count", granularity, "sum")
@@ -167,30 +174,91 @@ class SignupsKpiView(APIView):
 
 
 # ==============================================================================
+# 1b. BOUTIQUES CRÉÉES
+# ==============================================================================
+def compute_created_shops_kpi(since, until, prev_since, prev_until, granularity):
+    service = NlensService()
+    total_query = f'FROM shops SELECT COUNT(*) AS total SINCE "{since}" UNTIL "{until}"'
+    trend_query = f'FROM shops SELECT created_on__date, COUNT(*) AS total_shops GROUP BY created_on__date SINCE "{since}" UNTIL "{until}"'
+    prev_total_query = f'FROM shops SELECT COUNT(*) AS total SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_trend_query = f'FROM shops SELECT created_on__date, COUNT(*) AS total_shops GROUP BY created_on__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+
+    total_data = service.query(total_query)
+    trend_data = service.query(trend_query)
+    prev_total_data = service.query(prev_total_query)
+    prev_trend_data = service.query(prev_trend_query)
+
+    total = total_data["data"][0]["total"] if total_data.get("data") else 0
+    prev_total = prev_total_data["data"][0]["total"] if prev_total_data.get("data") else 0
+
+    raw_trend = [
+        {"day": row["created_on__date"], "count": row["total_shops"]}
+        for row in trend_data.get("data", [])
+    ]
+    raw_prev_trend = [
+        {"day": row["created_on__date"], "count": row["total_shops"]}
+        for row in prev_trend_data.get("data", [])
+    ]
+
+    trend = aggregate_trend(raw_trend, "count", granularity, "sum")
+    prev_trend = aggregate_trend(raw_prev_trend, "count", granularity, "sum")
+
+    return {
+        "total": total,
+        "previous_total": prev_total,
+        "trend": trend,
+        "previous_trend": prev_trend,
+        "since": since,
+        "until": until,
+        "prev_since": prev_since,
+        "prev_until": prev_until,
+        "granularity": granularity,
+    }
+
+
+class CreatedShopsKpiView(APIView):
+    def get(self, request):
+        since, until, prev_since, prev_until, granularity = get_date_bounds_with_previous(request)
+        cache_key = build_kpi_cache_key("created-shops", since, until, granularity)
+        cached = get_kpi_cache(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        try:
+            data = compute_created_shops_kpi(since, until, prev_since, prev_until, granularity)
+            set_kpi_cache(cache_key, data, ttl=7200)
+            return Response(data)
+        except NlensServiceError as e:
+            logger.warning("Query failed in CreatedShopsKpiView: %s", e)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==============================================================================
 # 2. PAYING STORES
 # ==============================================================================
 def compute_paying_stores_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM billing_subscriptions SELECT COUNT(DISTINCT store_id) AS total WHERE status = "active" SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM billing_subscriptions SELECT created_at__date, COUNT(DISTINCT store_id) AS active_stores WHERE status = "active" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM billing_subscriptions SELECT COUNT(DISTINCT store_id) AS total WHERE status = "active" SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM billing_subscriptions SELECT created_at__date, COUNT(DISTINCT store_id) AS active_stores WHERE status = "active" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    # Source de vérité: boutiques ayant payé une transaction d'abonnement sur la période
+    total_query = f'FROM billing_transactions SELECT COUNT(DISTINCT store_id) AS total WHERE type = "subscription" AND status = "paid" SINCE "{since}" UNTIL "{until}"'
+    prev_total_query = f'FROM billing_transactions SELECT COUNT(DISTINCT store_id) AS total WHERE type = "subscription" AND status = "paid" SINCE "{prev_since}" UNTIL "{prev_until}"'
+    trend_query = f'FROM billing_transactions SELECT created_at__date, COUNT(DISTINCT store_id) AS active_stores WHERE type = "subscription" AND status = "paid" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_trend_query = f'FROM billing_transactions SELECT created_at__date, COUNT(DISTINCT store_id) AS active_stores WHERE type = "subscription" AND status = "paid" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     res = service.query(total_query)
-    trend_res = service.query(trend_query)
     prev_res = service.query(prev_total_query)
+    trend_res = service.query(trend_query)
     prev_trend_res = service.query(prev_trend_query)
 
-    total = res["data"][0]["total"] if res["data"] else 0
-    prev_total = prev_res["data"][0]["total"] if prev_res["data"] else 0
+    total = res["data"][0]["total"] if res.get("data") else 0
+    prev_total = prev_res["data"][0]["total"] if prev_res.get("data") else 0
 
     raw_trend = [
         {"day": row["created_at__date"], "count": row["active_stores"]}
-        for row in trend_res["data"]
+        for row in trend_res.get("data", [])
     ]
     raw_prev_trend = [
         {"day": row["created_at__date"], "count": row["active_stores"]}
-        for row in prev_trend_res["data"]
+        for row in prev_trend_res.get("data", [])
     ]
 
     trend = aggregate_trend(raw_trend, "count", granularity, "sum")
@@ -231,26 +299,34 @@ class PayingStoresKpiView(APIView):
 # ==============================================================================
 def compute_paying_users_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM shops SELECT COUNT(DISTINCT owner_id) AS total WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM shops SELECT created_on__date, COUNT(DISTINCT owner_id) AS active_paying_users WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") GROUP BY created_on__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM shops SELECT COUNT(DISTINCT owner_id) AS total WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM shops SELECT created_on__date, COUNT(DISTINCT owner_id) AS active_paying_users WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") GROUP BY created_on__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    # Total distinct paying store_ids for the period
+    curr_stores_query = f'FROM billing_transactions SELECT COUNT(DISTINCT store_id) AS total WHERE type = "subscription" AND status = "paid" SINCE "{since}" UNTIL "{until}"'
+    prev_stores_query = f'FROM billing_transactions SELECT COUNT(DISTINCT store_id) AS total WHERE type = "subscription" AND status = "paid" SINCE "{prev_since}" UNTIL "{prev_until}"'
+    # Trend: paying stores by day (proxy for paying users since 1 store = 1 owner)
+    trend_query = f'FROM billing_transactions SELECT created_at__date, COUNT(DISTINCT store_id) AS paying_stores WHERE type = "subscription" AND status = "paid" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_trend_query = f'FROM billing_transactions SELECT created_at__date, COUNT(DISTINCT store_id) AS paying_stores WHERE type = "subscription" AND status = "paid" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    # Map stores to their owner_id
+    shops_query = f'FROM shops SELECT id, owner_id WHERE id IN (FROM billing_transactions SELECT store_id WHERE type = "subscription" AND status = "paid" AND created_at >= "{since}" AND created_at <= "{until}")'
+    prev_shops_query = f'FROM shops SELECT id, owner_id WHERE id IN (FROM billing_transactions SELECT store_id WHERE type = "subscription" AND status = "paid" AND created_at >= "{prev_since}" AND created_at <= "{prev_until}")'
 
-    res = service.query(total_query)
+    curr_stores_res = service.query(curr_stores_query)
+    prev_stores_res = service.query(prev_stores_query)
     trend_res = service.query(trend_query)
-    prev_res = service.query(prev_total_query)
     prev_trend_res = service.query(prev_trend_query)
+    shops_res = service.query(shops_query)
+    prev_shops_res = service.query(prev_shops_query)
 
-    total = res["data"][0]["total"] if res["data"] else 0
-    prev_total = prev_res["data"][0]["total"] if prev_res["data"] else 0
+    # Count distinct owner_ids (a store owner may have multiple stores)
+    total = len({row["owner_id"] for row in shops_res.get("data", []) if row.get("owner_id")})
+    prev_total = len({row["owner_id"] for row in prev_shops_res.get("data", []) if row.get("owner_id")})
 
     raw_trend = [
-        {"day": row["created_on__date"], "count": row["active_paying_users"]}
-        for row in trend_res["data"]
+        {"day": row["created_at__date"], "count": row["paying_stores"]}
+        for row in trend_res.get("data", [])
     ]
     raw_prev_trend = [
-        {"day": row["created_on__date"], "count": row["active_paying_users"]}
-        for row in prev_trend_res["data"]
+        {"day": row["created_at__date"], "count": row["paying_stores"]}
+        for row in prev_trend_res.get("data", [])
     ]
 
     trend = aggregate_trend(raw_trend, "count", granularity, "sum")
@@ -301,16 +377,16 @@ def compute_sessions_kpi(since, until, prev_since, prev_until, granularity):
     prev_total_data = service.query(prev_total_query)
     prev_trend_data = service.query(prev_trend_query)
 
-    total = total_data["data"][0]["total"] if total_data["data"] else 0
-    prev_total = prev_total_data["data"][0]["total"] if prev_total_data["data"] else 0
+    total = total_data["data"][0]["total"] if total_data.get("data") else 0
+    prev_total = prev_total_data["data"][0]["total"] if prev_total_data.get("data") else 0
 
     raw_trend = [
         {"day": row["started_at__date"], "count": row["session_count"]}
-        for row in trend_data["data"]
+        for row in trend_data.get("data", [])
     ]
     raw_prev_trend = [
         {"day": row["started_at__date"], "count": row["session_count"]}
-        for row in prev_trend_data["data"]
+        for row in prev_trend_data.get("data", [])
     ]
 
     trend = aggregate_trend(raw_trend, "count", granularity, "sum")
@@ -351,59 +427,89 @@ class SessionsKpiView(APIView):
 # ==============================================================================
 def compute_mrr_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_revenue WHERE status = "paid" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_revenue WHERE status = "paid" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
-    total_data = service.query(total_query)
-    trend_data = service.query(trend_query)
-    prev_total_data = service.query(prev_total_query)
-    prev_trend_data = service.query(prev_trend_query)
+    # 1. Total Revenue (All paid transactions: subscription + topup) on the selected period
+    rev_total_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" SINCE "{since}" UNTIL "{until}"'
+    rev_trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_revenue WHERE status = "paid" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_rev_total_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_rev_trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_revenue WHERE status = "paid" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
-    amount_raw = total_data["data"][0]["total"] if total_data["data"] else 0
-    revenue = float(amount_raw or 0)
+    rev_total_data = service.query(rev_total_query)
+    rev_trend_data = service.query(rev_trend_query)
+    prev_rev_total_data = service.query(prev_rev_total_query)
+    prev_rev_trend_data = service.query(prev_rev_trend_query)
 
-    prev_amount_raw = prev_total_data["data"][0]["total"] if prev_total_data["data"] else 0
-    prev_revenue = float(prev_amount_raw or 0)
+    revenue = float(rev_total_data["data"][0]["total"] or 0) if rev_total_data.get("data") else 0.0
+    prev_revenue = float(prev_rev_total_data["data"][0]["total"] or 0) if prev_rev_total_data.get("data") else 0.0
 
-    raw_trend = [
+    raw_rev_trend = [
         {"day": row["created_at__date"], "amount": float(row["daily_revenue"] or 0)}
-        for row in trend_data["data"]
+        for row in rev_trend_data.get("data", [])
     ]
-    raw_prev_trend = [
+    raw_prev_rev_trend = [
         {"day": row["created_at__date"], "amount": float(row["daily_revenue"] or 0)}
-        for row in prev_trend_data["data"]
+        for row in prev_rev_trend_data.get("data", [])
     ]
 
-    trend = aggregate_trend(raw_trend, "amount", granularity, "sum")
-    prev_trend = aggregate_trend(raw_prev_trend, "amount", granularity, "sum")
+    revenue_trend = aggregate_trend(raw_rev_trend, "amount", granularity, "sum")
+    prev_revenue_trend = aggregate_trend(raw_prev_rev_trend, "amount", granularity, "sum")
 
-    mrr = revenue
-    prev_mrr = prev_revenue
+    # 2. MRR (Monthly Recurring Revenue: strictly type='subscription')
+    # Normalized 30-day recurring window up to 'until'
+    until_d = date.fromisoformat(until)
+    mrr_since_30d = (until_d - timedelta(days=29)).strftime("%Y-%m-%d")
+    prev_until_d = date.fromisoformat(prev_until)
+    prev_mrr_since_30d = (prev_until_d - timedelta(days=29)).strftime("%Y-%m-%d")
+
+    mrr_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" AND type = "subscription" SINCE "{mrr_since_30d}" UNTIL "{until}"'
+    prev_mrr_query = f'FROM billing_transactions SELECT SUM(amount) AS total WHERE status = "paid" AND type = "subscription" SINCE "{prev_mrr_since_30d}" UNTIL "{prev_until}"'
+    mrr_trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_mrr WHERE status = "paid" AND type = "subscription" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_mrr_trend_query = f'FROM billing_transactions SELECT created_at__date, SUM(amount) AS daily_mrr WHERE status = "paid" AND type = "subscription" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+
+    mrr_data = service.query(mrr_query)
+    prev_mrr_data = service.query(prev_mrr_query)
+    mrr_trend_data = service.query(mrr_trend_query)
+    prev_mrr_trend_data = service.query(prev_mrr_trend_query)
+
+    mrr = float(mrr_data["data"][0]["total"] or 0) if mrr_data.get("data") else 0.0
+    prev_mrr = float(prev_mrr_data["data"][0]["total"] or 0) if prev_mrr_data.get("data") else 0.0
+
+    raw_mrr_trend = [
+        {"day": row["created_at__date"], "amount": float(row["daily_mrr"] or 0)}
+        for row in mrr_trend_data.get("data", [])
+    ]
+    raw_prev_mrr_trend = [
+        {"day": row["created_at__date"], "amount": float(row["daily_mrr"] or 0)}
+        for row in prev_mrr_trend_data.get("data", [])
+    ]
+
+    mrr_trend = aggregate_trend(raw_mrr_trend, "amount", granularity, "sum")
+    prev_mrr_trend = aggregate_trend(raw_prev_mrr_trend, "amount", granularity, "sum")
+
+    # 3. ARR (Annual Recurring Revenue = MRR * 12)
     arr = round(mrr * 12.0, 2)
     prev_arr = round(prev_mrr * 12.0, 2)
 
     arr_trend = [
         {"day": row["day"], "amount": round(row["amount"] * 12.0, 2)}
-        for row in trend
+        for row in mrr_trend
     ]
     prev_arr_trend = [
         {"day": row["day"], "amount": round(row["amount"] * 12.0, 2)}
-        for row in prev_trend
+        for row in prev_mrr_trend
     ]
 
     return {
         "revenue": revenue,
         "previous_revenue": prev_revenue,
-        "revenue_trend": trend,
-        "previous_revenue_trend": prev_trend,
+        "revenue_trend": revenue_trend,
+        "previous_revenue_trend": prev_revenue_trend,
         "mrr": mrr,
         "previous_mrr": prev_mrr,
         "arr": arr,
         "previous_arr": prev_arr,
-        "trend": trend,
-        "previous_trend": prev_trend,
+        "trend": mrr_trend,
+        "previous_trend": prev_mrr_trend,
         "arr_trend": arr_trend,
         "previous_arr_trend": prev_arr_trend,
         "since": since,
@@ -436,30 +542,30 @@ class MrrKpiView(APIView):
 # ==============================================================================
 def compute_active_users_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM user_session_events SELECT COUNT(DISTINCT user_id) AS total WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT user_id) AS active_users WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM user_session_events SELECT COUNT(DISTINCT user_id) AS total WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT user_id) AS active_users WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    total_query = f'FROM user_session_events SELECT COUNT(DISTINCT user_id) AS total WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) SINCE "{since}" UNTIL "{until}"'
+    trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT user_id) AS active_users WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_total_query = f'FROM user_session_events SELECT COUNT(DISTINCT user_id) AS total WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT user_id) AS active_users WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     res = service.query(total_query)
     trend_res = service.query(trend_query)
     prev_res = service.query(prev_total_query)
     prev_trend_res = service.query(prev_trend_query)
 
-    total = res["data"][0]["total"] if res["data"] else 0
-    prev_total = prev_res["data"][0]["total"] if prev_res["data"] else 0
+    total = res["data"][0]["total"] if res.get("data") else 0
+    prev_total = prev_res["data"][0]["total"] if prev_res.get("data") else 0
 
     raw_trend = [
         {"day": row["created_at__date"], "count": row["active_users"]}
-        for row in trend_res["data"]
+        for row in trend_res.get("data", [])
     ]
     raw_prev_trend = [
         {"day": row["created_at__date"], "count": row["active_users"]}
-        for row in prev_trend_res["data"]
+        for row in prev_trend_res.get("data", [])
     ]
 
-    trend = aggregate_trend(raw_trend, "count", granularity, "sum")
-    prev_trend = aggregate_trend(raw_prev_trend, "count", granularity, "sum")
+    trend = aggregate_trend(raw_trend, "count", granularity, "avg")
+    prev_trend = aggregate_trend(raw_prev_trend, "count", granularity, "avg")
 
     return {
         "total": total,
@@ -496,30 +602,30 @@ class ActiveUsersKpiView(APIView):
 # ==============================================================================
 def compute_active_stores_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM user_session_events SELECT COUNT(DISTINCT shop_id) AS total WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT shop_id) AS active_stores WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM user_session_events SELECT COUNT(DISTINCT shop_id) AS total WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT shop_id) AS active_stores WHERE actor = "user" AND event_type NOT IN ("login", "logout", "signup", "page_view", "switch_store") GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    total_query = f'FROM user_session_events SELECT COUNT(DISTINCT shop_id) AS total WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) SINCE "{since}" UNTIL "{until}"'
+    trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT shop_id) AS active_stores WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_total_query = f'FROM user_session_events SELECT COUNT(DISTINCT shop_id) AS total WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_trend_query = f'FROM user_session_events SELECT created_at__date, COUNT(DISTINCT shop_id) AS active_stores WHERE actor = "user" AND event_type NOT IN ({PASSIVE_EVENT_TYPES_SQL}) GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     res = service.query(total_query)
     trend_res = service.query(trend_query)
     prev_res = service.query(prev_total_query)
     prev_trend_res = service.query(prev_trend_query)
 
-    total = res["data"][0]["total"] if res["data"] else 0
-    prev_total = prev_res["data"][0]["total"] if prev_res["data"] else 0
+    total = res["data"][0]["total"] if res.get("data") else 0
+    prev_total = prev_res["data"][0]["total"] if prev_res.get("data") else 0
 
     raw_trend = [
         {"day": row["created_at__date"], "count": row["active_stores"]}
-        for row in trend_res["data"]
+        for row in trend_res.get("data", [])
     ]
     raw_prev_trend = [
         {"day": row["created_at__date"], "count": row["active_stores"]}
-        for row in prev_trend_res["data"]
+        for row in prev_trend_res.get("data", [])
     ]
 
-    trend = aggregate_trend(raw_trend, "count", granularity, "sum")
-    prev_trend = aggregate_trend(raw_prev_trend, "count", granularity, "sum")
+    trend = aggregate_trend(raw_trend, "count", granularity, "avg")
+    prev_trend = aggregate_trend(raw_prev_trend, "count", granularity, "avg")
 
     return {
         "total": total,
@@ -566,17 +672,17 @@ def compute_activation_kpi(since, until, prev_since, prev_until, granularity):
     prev_res = service.query(prev_total_query)
     prev_trend_res = service.query(prev_trend_query)
 
-    completed = float(res["data"][0]["completed"] or 0)
-    total = float(res["data"][0]["total"] or 0)
+    completed = float(res["data"][0].get("completed") or 0.0) if res.get("data") else 0.0
+    total = float(res["data"][0].get("total") or 0.0) if res.get("data") else 0.0
     rate = round((completed / total) * 100.0, 2) if total > 0 else 0.0
 
-    prev_completed = float(prev_res["data"][0]["completed"] or 0)
-    prev_total_val = float(prev_res["data"][0]["total"] or 0)
-    prev_rate = round((prev_completed / prev_total_val) * 100.0, 2) if prev_total_val > 0 else 0.0
+    prev_completed = float(prev_res["data"][0].get("completed") or 0.0) if prev_res.get("data") else 0.0
+    prev_total = float(prev_res["data"][0].get("total") or 0.0) if prev_res.get("data") else 0.0
+    prev_rate = round((prev_completed / prev_total) * 100.0, 2) if prev_total > 0 else 0.0
 
     if granularity == "month":
         buckets = defaultdict(lambda: {"completed": 0.0, "total": 0.0})
-        for row in trend_res["data"]:
+        for row in trend_res.get("data", []):
             m_key = str(row["created_on__date"])[:7]
             buckets[m_key]["completed"] += float(row.get("completed_shops") or 0)
             buckets[m_key]["total"] += float(row.get("total_shops") or 0)
@@ -589,7 +695,7 @@ def compute_activation_kpi(since, until, prev_since, prev_until, granularity):
         ]
 
         prev_buckets = defaultdict(lambda: {"completed": 0.0, "total": 0.0})
-        for row in prev_trend_res["data"]:
+        for row in prev_trend_res.get("data", []):
             m_key = str(row["created_on__date"])[:7]
             prev_buckets[m_key]["completed"] += float(row.get("completed_shops") or 0)
             prev_buckets[m_key]["total"] += float(row.get("total_shops") or 0)
@@ -605,9 +711,9 @@ def compute_activation_kpi(since, until, prev_since, prev_until, granularity):
             [
                 {
                     "day": row["created_on__date"],
-                    "rate": round((float(row["completed_shops"] or 0) / float(row["total_shops"] or 1)) * 100.0, 2),
+                    "rate": round((float(row.get("completed_shops") or 0.0) / float(row.get("total_shops") or 1.0)) * 100.0, 2) if float(row.get("total_shops") or 0.0) > 0 else 0.0,
                 }
-                for row in trend_res["data"]
+                for row in trend_res.get("data", [])
             ],
             key=lambda x: x["day"],
         )
@@ -615,9 +721,9 @@ def compute_activation_kpi(since, until, prev_since, prev_until, granularity):
             [
                 {
                     "day": row["created_on__date"],
-                    "rate": round((float(row["completed_shops"] or 0) / float(row["total_shops"] or 1)) * 100.0, 2),
+                    "rate": round((float(row.get("completed_shops") or 0.0) / float(row.get("total_shops") or 1.0)) * 100.0, 2) if float(row.get("total_shops") or 0.0) > 0 else 0.0,
                 }
-                for row in prev_trend_res["data"]
+                for row in prev_trend_res.get("data", [])
             ],
             key=lambda x: x["day"],
         )
@@ -657,39 +763,40 @@ class ActivationKpiView(APIView):
 # ==============================================================================
 def compute_churn_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    canceled_query = f'FROM billing_subscriptions SELECT COUNT(*) AS canceled_count WHERE status = "canceled" SINCE "{since}" UNTIL "{until}"'
-    active_query = f'FROM billing_subscriptions SELECT COUNT(*) AS active_count WHERE status = "active" SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM billing_subscriptions SELECT created_at__date, COUNT(*) AS canceled_count WHERE status = "canceled" GROUP BY created_at__date SINCE "{since}" UNTIL "{until}"'
+    # Canceled subscriptions during the period
+    canceled_query = f'FROM billing_subscriptions SELECT COUNT(*) AS canceled_count WHERE status = "canceled" AND canceled_at >= "{since}" AND canceled_at <= "{until}"'
+    # Currently active subscriptions
+    active_query = 'FROM billing_subscriptions SELECT COUNT(*) AS active_count WHERE status = "active"'
+    trend_query = f'FROM billing_subscriptions SELECT canceled_at__date, COUNT(*) AS canceled_count WHERE status = "canceled" AND canceled_at >= "{since}" AND canceled_at <= "{until}" GROUP BY canceled_at__date'
 
-    prev_canceled_query = f'FROM billing_subscriptions SELECT COUNT(*) AS canceled_count WHERE status = "canceled" SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_active_query = f'FROM billing_subscriptions SELECT COUNT(*) AS active_count WHERE status = "active" SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM billing_subscriptions SELECT created_at__date, COUNT(*) AS canceled_count WHERE status = "canceled" GROUP BY created_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_canceled_query = f'FROM billing_subscriptions SELECT COUNT(*) AS canceled_count WHERE status = "canceled" AND canceled_at >= "{prev_since}" AND canceled_at <= "{prev_until}"'
+    prev_trend_query = f'FROM billing_subscriptions SELECT canceled_at__date, COUNT(*) AS canceled_count WHERE status = "canceled" AND canceled_at >= "{prev_since}" AND canceled_at <= "{prev_until}" GROUP BY canceled_at__date'
 
     canceled_res = service.query(canceled_query)
     active_res = service.query(active_query)
     trend_res = service.query(trend_query)
 
     prev_canceled_res = service.query(prev_canceled_query)
-    prev_active_res = service.query(prev_active_query)
     prev_trend_res = service.query(prev_trend_query)
 
-    canceled = int(canceled_res["data"][0]["canceled_count"] or 0) if canceled_res["data"] else 0
-    active = int(active_res["data"][0]["active_count"] or 0) if active_res["data"] else 0
+    canceled = int(canceled_res["data"][0]["canceled_count"] or 0) if canceled_res.get("data") else 0
+    active = int(active_res["data"][0]["active_count"] or 0) if active_res.get("data") else 0
     total_pool = active + canceled
     churn_rate = round((canceled / total_pool) * 100.0, 2) if total_pool > 0 else 0.0
 
-    prev_canceled = int(prev_canceled_res["data"][0]["canceled_count"] or 0) if prev_canceled_res["data"] else 0
-    prev_active = int(prev_active_res["data"][0]["active_count"] or 0) if prev_active_res["data"] else 0
-    prev_total_pool = prev_active + prev_canceled
+    prev_canceled = int(prev_canceled_res["data"][0]["canceled_count"] or 0) if prev_canceled_res.get("data") else 0
+    prev_total_pool = active + prev_canceled
     prev_churn_rate = round((prev_canceled / prev_total_pool) * 100.0, 2) if prev_total_pool > 0 else 0.0
 
     raw_trend = [
-        {"day": row["created_at__date"], "count": row["canceled_count"]}
-        for row in trend_res["data"]
+        {"day": row["canceled_at__date"], "count": row["canceled_count"]}
+        for row in trend_res.get("data", [])
+        if row.get("canceled_at__date")
     ]
     raw_prev_trend = [
-        {"day": row["created_at__date"], "count": row["canceled_count"]}
-        for row in prev_trend_res["data"]
+        {"day": row["canceled_at__date"], "count": row["canceled_count"]}
+        for row in prev_trend_res.get("data", [])
+        if row.get("canceled_at__date")
     ]
 
     churn_trend = aggregate_trend(raw_trend, "count", granularity, "sum")
@@ -699,7 +806,7 @@ def compute_churn_kpi(since, until, prev_since, prev_until, granularity):
         "canceled_count": canceled,
         "previous_canceled_count": prev_canceled,
         "active_count": active,
-        "previous_active_count": prev_active,
+        "previous_active_count": active,
         "churn_rate": churn_rate,
         "previous_churn_rate": prev_churn_rate,
         "trend": churn_trend,
@@ -745,8 +852,8 @@ def compute_retention_kpi():
 
     if not transactions:
         return {
-            "m1_retention_rate": 100.0,
-            "previous_m1_rate": 100.0,
+            "m1_retention_rate": 0.0,
+            "previous_m1_rate": 0.0,
             "m1_sample_size": 0,
             "total_paid_stores": 0,
             "is_preliminary": True,
@@ -868,7 +975,7 @@ def compute_retention_kpi():
         })
 
     total_paid_stores = len(store_first_paid)
-    m1_avg = round(sum(m1_rates) / len(m1_rates), 1) if m1_rates else 100.0
+    m1_avg = round(sum(m1_rates) / len(m1_rates), 1) if m1_rates else 0.0
     prev_m1_avg = round(sum(m1_rates[:-1]) / len(m1_rates[:-1]), 1) if len(m1_rates) > 1 else m1_avg
 
     return {
@@ -905,7 +1012,7 @@ def compute_recent_transactions():
     service = NlensService()
     query = 'FROM billing_transactions SELECT id, amount, status, type, created_at INCLUDE store ORDER BY created_at DESC LIMIT 10'
     res = service.query(query)
-    return {"transactions": res["data"]}
+    return {"transactions": res.get("data", [])}
 
 
 class RecentTransactionsView(APIView):
@@ -983,10 +1090,10 @@ class FeedbacksKpiView(APIView):
 # ==============================================================================
 def compute_time_spent_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
-    total_query = f'FROM user_sessions SELECT AVG(active_duration_seconds) AS avg_sec SINCE "{since}" UNTIL "{until}"'
-    trend_query = f'FROM user_sessions SELECT started_at__date, AVG(active_duration_seconds) AS avg_sec GROUP BY started_at__date SINCE "{since}" UNTIL "{until}"'
-    prev_total_query = f'FROM user_sessions SELECT AVG(active_duration_seconds) AS avg_sec SINCE "{prev_since}" UNTIL "{prev_until}"'
-    prev_trend_query = f'FROM user_sessions SELECT started_at__date, AVG(active_duration_seconds) AS avg_sec GROUP BY started_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
+    total_query = f'FROM user_sessions SELECT AVG(active_duration_seconds) AS avg_sec WHERE active_duration_seconds > 0 SINCE "{since}" UNTIL "{until}"'
+    trend_query = f'FROM user_sessions SELECT started_at__date, AVG(active_duration_seconds) AS avg_sec WHERE active_duration_seconds > 0 GROUP BY started_at__date SINCE "{since}" UNTIL "{until}"'
+    prev_total_query = f'FROM user_sessions SELECT AVG(active_duration_seconds) AS avg_sec WHERE active_duration_seconds > 0 SINCE "{prev_since}" UNTIL "{prev_until}"'
+    prev_trend_query = f'FROM user_sessions SELECT started_at__date, AVG(active_duration_seconds) AS avg_sec WHERE active_duration_seconds > 0 GROUP BY started_at__date SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     t_res = service.query(total_query)
     t_data = t_res.get("data", [{}])[0] if t_res.get("data") else {}
@@ -1179,8 +1286,8 @@ class AiCategoriesKpiView(APIView):
 # ==============================================================================
 def compute_top_pages_kpi(since, until, prev_since, prev_until, granularity=None):
     service = NlensService()
-    query = f'FROM user_session_events SELECT page_type, COUNT(*) AS total_views WHERE page_type IS NOT NULL GROUP BY page_type SINCE "{since}" UNTIL "{until}"'
-    prev_query = f'FROM user_session_events SELECT page_type, COUNT(*) AS total_views WHERE page_type IS NOT NULL GROUP BY page_type SINCE "{prev_since}" UNTIL "{prev_until}"'
+    query = f'FROM user_session_events SELECT page_type, COUNT(*) AS total_views WHERE event_type = "page_view" GROUP BY page_type SINCE "{since}" UNTIL "{until}"'
+    prev_query = f'FROM user_session_events SELECT page_type, COUNT(*) AS total_views WHERE event_type = "page_view" GROUP BY page_type SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     page_labels_fr = {
         "products": "Catalogue Produits",
@@ -1257,9 +1364,12 @@ class TopPagesKpiView(APIView):
 # ==============================================================================
 # 16. BUSINESS MODELS
 # ==============================================================================
-def compute_business_models_kpi():
+def compute_business_models_kpi(since=None, until=None):
     service = NlensService()
-    query = 'FROM shops SELECT business_model, COUNT(*) AS total_models GROUP BY business_model'
+    if since and until:
+        query = f'FROM shops SELECT business_model, COUNT(*) AS total_models GROUP BY business_model SINCE "{since}" UNTIL "{until}"'
+    else:
+        query = 'FROM shops SELECT business_model, COUNT(*) AS total_models GROUP BY business_model'
 
     model_labels_fr = {
         "dropshipping": "Dropshipping",
@@ -1297,13 +1407,14 @@ def compute_business_models_kpi():
 
 class BusinessModelsKpiView(APIView):
     def get(self, request):
-        cache_key = build_kpi_cache_key("business-models", "all", "all", "all")
+        since, until, prev_since, prev_until, granularity = get_date_bounds_with_previous(request)
+        cache_key = build_kpi_cache_key("business-models", since, until, granularity)
         cached = get_kpi_cache(cache_key)
         if cached is not None:
             return Response(cached)
 
         try:
-            data = compute_business_models_kpi()
+            data = compute_business_models_kpi(since, until)
             set_kpi_cache(cache_key, data, ttl=7200)
             return Response(data)
         except NlensServiceError as e:
@@ -1383,10 +1494,14 @@ class DevicesKpiView(APIView):
 # ==============================================================================
 # 18. GÉOGRAPHIE
 # ==============================================================================
-def compute_geo_distribution_kpi():
+def compute_geo_distribution_kpi(since=None, until=None):
     service = NlensService()
-    total_query = 'FROM shops SELECT country__code, COUNT(*) AS total_stores GROUP BY country__code'
-    paid_query = 'FROM shops SELECT country__code, COUNT(*) AS paid_stores WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") GROUP BY country__code'
+    if since and until:
+        total_query = f'FROM shops SELECT country__code, COUNT(*) AS total_stores GROUP BY country__code SINCE "{since}" UNTIL "{until}" ORDER BY total_stores DESC LIMIT 10'
+        paid_query = f'FROM shops SELECT country__code, COUNT(*) AS paid_stores WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") GROUP BY country__code SINCE "{since}" UNTIL "{until}"'
+    else:
+        total_query = 'FROM shops SELECT country__code, COUNT(*) AS total_stores GROUP BY country__code ORDER BY total_stores DESC LIMIT 10'
+        paid_query = 'FROM shops SELECT country__code, COUNT(*) AS paid_stores WHERE id IN (FROM billing_subscriptions SELECT store_id WHERE status = "active") GROUP BY country__code'
 
     country_names_fr = {
         "US": "États-Unis",
@@ -1444,13 +1559,14 @@ def compute_geo_distribution_kpi():
 
 class GeoDistributionKpiView(APIView):
     def get(self, request):
-        cache_key = build_kpi_cache_key("geo-distribution", "all", "all", "all")
+        since, until, prev_since, prev_until, granularity = get_date_bounds_with_previous(request)
+        cache_key = build_kpi_cache_key("geo-distribution", since, until, granularity)
         cached = get_kpi_cache(cache_key)
         if cached is not None:
             return Response(cached)
 
         try:
-            data = compute_geo_distribution_kpi()
+            data = compute_geo_distribution_kpi(since, until)
             set_kpi_cache(cache_key, data, ttl=7200)
             return Response(data)
         except NlensServiceError as e:
@@ -1461,20 +1577,27 @@ class GeoDistributionKpiView(APIView):
 # ==============================================================================
 # 19. TIME-TO-VALUE
 # ==============================================================================
-def compute_time_to_value_kpi():
+def compute_time_to_value_kpi(since=None, until=None):
     service = NlensService()
-    shops_query = 'FROM shops SELECT id, created_on ORDER BY id ASC LIMIT 5000'
-    events_query = 'FROM user_session_events SELECT shop_id, event_type, created_at WHERE event_type IN ("create_product", "create_storefront", "publish_storefront", "add_payment_method", "create_shipping_zone") ORDER BY created_at ASC LIMIT 10000'
+    if since and until:
+        create_store_query = f'FROM user_session_events SELECT shop_id, created_at WHERE event_type = "create_store" SINCE "{since}" UNTIL "{until}" ORDER BY created_at ASC'
+        events_query = f'FROM user_session_events SELECT shop_id, event_type, created_at WHERE event_type IN ("create_product", "create_storefront", "publish_storefront", "add_payment_method", "create_shipping_zone") AND shop_id IN (FROM user_session_events SELECT shop_id WHERE event_type = "create_store" AND created_at >= "{since}" AND created_at <= "{until}") ORDER BY created_at ASC'
+    else:
+        create_store_query = 'FROM user_session_events SELECT shop_id, created_at WHERE event_type = "create_store" ORDER BY created_at ASC'
+        events_query = 'FROM user_session_events SELECT shop_id, event_type, created_at WHERE event_type IN ("create_product", "create_storefront", "publish_storefront", "add_payment_method", "create_shipping_zone") ORDER BY created_at ASC'
 
-    shops_res = service.query(shops_query)
+    create_store_res = service.query(create_store_query)
     events_res = service.query(events_query)
 
     shop_created_map = {}
-    for row in shops_res.get("data", []):
-        created_str = row.get("created_on")
-        if created_str:
+    for row in create_store_res.get("data", []):
+        s_id = row.get("shop_id")
+        created_str = row.get("created_at")
+        if s_id and created_str:
             try:
-                shop_created_map[row["id"]] = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                if s_id not in shop_created_map or dt < shop_created_map[s_id]:
+                    shop_created_map[s_id] = dt
             except Exception:
                 pass
 
@@ -1492,11 +1615,11 @@ def compute_time_to_value_kpi():
                     pass
 
     target_events = [
-        ("product", "create_product", "Délai avant 1er produit", "Temps écoulé entre la création de la boutique et l'ajout du premier produit au catalogue."),
-        ("storefront", "create_storefront", "Délai avant 1ère vitrine", "Temps écoulé avant la création ou personnalisation de la vitrine marchande."),
-        ("publish", "publish_storefront", "Délai avant 1ère publication", "Temps nécessaire pour mettre en ligne la boutique pour la première fois."),
-        ("payment", "add_payment_method", "Délai avant 1er moyen de paiement", "Délai avant l'activation d'un prestataire ou moyen de paiement."),
-        ("shipping", "create_shipping_zone", "Délai avant 1ère zone de livraison", "Délai avant la configuration des zones et frais d'expédition."),
+        ("product", "create_product", "Temps moyen avant 1er produit", "Temps moyen écoulé entre l'événement de création de la boutique et l'ajout du premier produit au catalogue."),
+        ("storefront", "create_storefront", "Temps moyen avant 1ère vitrine", "Temps moyen écoulé entre l'événement de création de la boutique et la personnalisation de la vitrine."),
+        ("publish", "publish_storefront", "Temps moyen avant 1ère publication", "Temps moyen nécessaire pour publier en ligne la boutique après sa création."),
+        ("payment", "add_payment_method", "Temps moyen avant 1er moyen de paiement", "Temps moyen écoulé entre la création de la boutique et l'activation d'un moyen de paiement."),
+        ("shipping", "create_shipping_zone", "Temps moyen avant 1ère zone de livraison", "Temps moyen écoulé entre la création de la boutique et la configuration des zones d'expédition."),
     ]
 
     bucket_defs = [
@@ -1519,13 +1642,7 @@ def compute_time_to_value_kpi():
                     delays_hours.append(delta_h)
 
         total_events = len(delays_hours)
-        delays_hours.sort()
-
-        if delays_hours:
-            mid = len(delays_hours) // 2
-            median_hours = delays_hours[mid] if len(delays_hours) % 2 != 0 else (delays_hours[mid - 1] + delays_hours[mid]) / 2.0
-        else:
-            median_hours = 0.0
+        avg_hours = (sum(delays_hours) / total_events) if total_events > 0 else 0.0
 
         buckets = []
         for label, min_h, max_h in bucket_defs:
@@ -1545,8 +1662,8 @@ def compute_time_to_value_kpi():
             "event_type": ev_type,
             "title": title,
             "meaning": meaning,
-            "median_hours": round(median_hours, 2),
-            "formatted_median": format_hours_delay_fr(median_hours),
+            "avg_hours": round(avg_hours, 2),
+            "formatted_avg": format_hours_delay_fr(avg_hours),
             "total_completed": total_events,
             "buckets": buckets,
         }
@@ -1556,13 +1673,14 @@ def compute_time_to_value_kpi():
 
 class TimeToValueKpiView(APIView):
     def get(self, request):
-        cache_key = build_kpi_cache_key("time-to-value", "all", "all", "all")
+        since, until, prev_since, prev_until, granularity = get_date_bounds_with_previous(request)
+        cache_key = build_kpi_cache_key("time-to-value", since, until, granularity)
         cached = get_kpi_cache(cache_key)
         if cached is not None:
             return Response(cached)
 
         try:
-            data = compute_time_to_value_kpi()
+            data = compute_time_to_value_kpi(since, until)
             set_kpi_cache(cache_key, data, ttl=7200)
             return Response(data)
         except NlensServiceError as e:
@@ -1575,30 +1693,41 @@ class TimeToValueKpiView(APIView):
 # ==============================================================================
 def compute_onboarding_rates_kpi(since, until, prev_since, prev_until, granularity):
     service = NlensService()
+    # Denominator: stores created in period
     total_query = f'FROM shops SELECT COUNT(*) AS total SINCE "{since}" UNTIL "{until}"'
     prev_total_query = f'FROM shops SELECT COUNT(*) AS total SINCE "{prev_since}" UNTIL "{prev_until}"'
 
     total_shops = service.query(total_query)["data"][0]["total"] or 1
     prev_total_shops = service.query(prev_total_query)["data"][0]["total"] or 1
 
-    ev_query = f'FROM user_session_events SELECT created_at__date, event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") GROUP BY created_at__date, event_type SINCE "{since}" UNTIL "{until}"'
-    prev_ev_query = f'FROM user_session_events SELECT created_at__date, event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") GROUP BY created_at__date, event_type SINCE "{prev_since}" UNTIL "{prev_until}"'
+    # Numerator: Distinct shops in cohort executing the actions
+    ev_summary_query = f'FROM user_session_events SELECT event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") AND shop_id IN (FROM shops SELECT id WHERE created_on >= "{since}" AND created_on <= "{until}") GROUP BY event_type SINCE "{since}" UNTIL "{until}"'
+    prev_ev_summary_query = f'FROM user_session_events SELECT event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") AND shop_id IN (FROM shops SELECT id WHERE created_on >= "{prev_since}" AND created_on <= "{prev_until}") GROUP BY event_type SINCE "{prev_since}" UNTIL "{prev_until}"'
 
-    ev_data = service.query(ev_query).get("data", [])
-    prev_ev_data = service.query(prev_ev_query).get("data", [])
+    # Daily trend of unique stores adopting the step
+    ev_trend_query = f'FROM user_session_events SELECT created_at__date, event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") AND shop_id IN (FROM shops SELECT id WHERE created_on >= "{since}" AND created_on <= "{until}") GROUP BY created_at__date, event_type SINCE "{since}" UNTIL "{until}"'
+    prev_ev_trend_query = f'FROM user_session_events SELECT created_at__date, event_type, COUNT(DISTINCT shop_id) AS stores_count WHERE event_type IN ("publish_storefront", "add_payment_method", "create_shipping_zone") AND shop_id IN (FROM shops SELECT id WHERE created_on >= "{prev_since}" AND created_on <= "{prev_until}") GROUP BY created_at__date, event_type SINCE "{prev_since}" UNTIL "{prev_until}"'
+
+    ev_summary_data = service.query(ev_summary_query).get("data", [])
+    prev_ev_summary_data = service.query(prev_ev_summary_query).get("data", [])
+    ev_trend_data = service.query(ev_trend_query).get("data", [])
+    prev_ev_trend_data = service.query(prev_ev_trend_query).get("data", [])
+
+    summary_map = {r["event_type"]: int(r["stores_count"] or 0) for r in ev_summary_data if "event_type" in r}
+    prev_summary_map = {r["event_type"]: int(r["stores_count"] or 0) for r in prev_ev_summary_data if "event_type" in r}
 
     def build_rate_metric(ev_name):
-        curr_rows = [r for r in ev_data if r["event_type"] == ev_name]
-        prev_rows = [r for r in prev_ev_data if r["event_type"] == ev_name]
+        curr_stores = summary_map.get(ev_name, 0)
+        prev_stores = prev_summary_map.get(ev_name, 0)
 
-        curr_stores = sum(r["stores_count"] for r in curr_rows)
-        prev_stores = sum(r["stores_count"] for r in prev_rows)
+        curr_rate = min(100.0, round((curr_stores / total_shops) * 100.0, 1))
+        prev_rate = min(100.0, round((prev_stores / prev_total_shops) * 100.0, 1))
 
-        curr_rate = round((curr_stores / total_shops) * 100.0, 1)
-        prev_rate = round((prev_stores / prev_total_shops) * 100.0, 1)
+        curr_trend_rows = [r for r in ev_trend_data if r.get("event_type") == ev_name]
+        prev_trend_rows = [r for r in prev_ev_trend_data if r.get("event_type") == ev_name]
 
-        raw_trend = [{"day": r["created_at__date"], "rate": round((r["stores_count"] / total_shops) * 100.0, 1)} for r in curr_rows]
-        raw_prev_trend = [{"day": r["created_at__date"], "rate": round((r["stores_count"] / prev_total_shops) * 100.0, 1)} for r in prev_rows]
+        raw_trend = [{"day": r["created_at__date"], "rate": min(100.0, round((r["stores_count"] / total_shops) * 100.0, 1))} for r in curr_trend_rows]
+        raw_prev_trend = [{"day": r["created_at__date"], "rate": min(100.0, round((r["stores_count"] / prev_total_shops) * 100.0, 1))} for r in prev_trend_rows]
 
         return {
             "rate": curr_rate,
@@ -1637,62 +1766,3 @@ class OnboardingRatesKpiView(APIView):
             logger.warning("Query failed in OnboardingRatesKpiView: %s", e)
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# ==============================================================================
-# 21. PAYMENT METHODS
-# ==============================================================================
-def compute_payment_methods_kpi():
-    service = NlensService()
-    query = 'FROM user_session_events SELECT id, metadata WHERE event_type = "add_payment_method" LIMIT 2000'
-
-    res = service.query(query).get("data", [])
-    provider_counts = defaultdict(int)
-    for r in res:
-        meta = r.get("metadata")
-        provider = "Stripe"
-        if isinstance(meta, dict) and "provider" in meta:
-            provider = str(meta["provider"]).capitalize()
-        elif isinstance(meta, str) and "paypal" in meta.lower():
-            provider = "PayPal"
-        elif isinstance(meta, str) and "stripe" in meta.lower():
-            provider = "Stripe"
-        elif isinstance(meta, str) and "bank" in meta.lower():
-            provider = "Virement Bancaire"
-        elif isinstance(meta, str) and "cod" in meta.lower():
-            provider = "Paiement à la livraison"
-        provider_counts[provider] += 1
-
-    if not provider_counts:
-        provider_counts = {"Stripe": 72, "PayPal": 28, "Virement Bancaire": 14, "Paiement à la livraison": 9}
-
-    total = sum(provider_counts.values()) or 0
-    methods = []
-    for p, cnt in sorted(provider_counts.items(), key=lambda x: x[1], reverse=True):
-        pct = round((cnt / total) * 100.0, 1) if total > 0 else 0.0
-        methods.append({
-            "provider": p,
-            "label": p,
-            "count": cnt,
-            "percentage": pct,
-        })
-
-    return {
-        "total": total,
-        "methods": methods,
-    }
-
-
-class PaymentMethodsKpiView(APIView):
-    def get(self, request):
-        cache_key = build_kpi_cache_key("payment-methods", "all", "all", "all")
-        cached = get_kpi_cache(cache_key)
-        if cached is not None:
-            return Response(cached)
-
-        try:
-            data = compute_payment_methods_kpi()
-            set_kpi_cache(cache_key, data, ttl=7200)
-            return Response(data)
-        except NlensServiceError as e:
-            logger.warning("Query failed in PaymentMethodsKpiView: %s", e)
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
