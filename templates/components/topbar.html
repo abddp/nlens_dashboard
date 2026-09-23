@@ -1,0 +1,68 @@
+<!-- Top Navigation & Controls Header -->
+<header class="px-6 md:px-8 pt-6 pb-2 transition-colors duration-200 max-w-[1600px] w-full mx-auto">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border-subtle)]">
+        <!-- Left Section: Mobile Hamburger Toggle & Title -->
+        <div class="flex items-center gap-3">
+            <button type="button" id="sidebar-toggle-btn" class="lg:hidden p-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-card-raised)] transition" title="Menu de navigation">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="flex flex-col">
+                <h1 class="text-sm md:text-base font-extrabold text-[var(--text-main)] tracking-tight">
+                    {% if active_page == 'overview' %}Vue d'ensemble
+                    {% elif active_page == 'finance' %}Finance & Revenus
+                    {% elif active_page == 'engagement' %}Engagement & Activité
+                    {% elif active_page == 'ai' %}Intelligence Artificielle & Copilote
+                    {% elif active_page == 'audience' %}Audience, Trafic & Géographie
+                    {% elif active_page == 'onboarding' %}Onboarding, Vélocité & Moyens de Paiement
+                    {% else %}Tableau de Bord
+                    {% endif %}
+                </h1>
+                <span class="text-[11px] text-[var(--text-muted)] font-medium">Analyses temps réel SaaS Nealens</span>
+            </div>
+        </div>
+
+        <!-- Working Controls: Periods, Date Range & Theme Toggle -->
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Period Selector (7D, 30D, Month, Year) -->
+            <div class="flex items-center bg-[var(--bg-card)] rounded-xl border border-[var(--border-card)] p-1 text-xs" id="period-selector-container">
+                <button type="button" data-period="7d" class="period-btn px-3 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition">
+                    7J
+                </button>
+                <button type="button" data-period="30d" class="period-btn active-period px-3 py-1.5 rounded-lg font-semibold bg-[var(--bg-card-raised)] text-[var(--text-main)] shadow-sm transition">
+                    30J
+                </button>
+                <button type="button" data-period="month" class="period-btn px-3 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition">
+                    Mois
+                </button>
+                <button type="button" data-period="year" class="period-btn px-3 py-1.5 rounded-lg font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition">
+                    Année
+                </button>
+            </div>
+
+            <!-- Custom Date Range Picker -->
+            <div class="flex items-center gap-2 bg-[var(--bg-card)] px-3 py-1.5 rounded-xl border border-[var(--border-card)] text-xs text-[var(--text-muted)]">
+                <svg class="w-3.5 h-3.5 text-[var(--text-faint)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input type="date" id="input-since" class="bg-transparent border-none text-xs text-[var(--text-main)] focus:outline-none cursor-pointer">
+                <span class="text-[var(--text-faint)]">→</span>
+                <input type="date" id="input-until" class="bg-transparent border-none text-xs text-[var(--text-main)] focus:outline-none cursor-pointer">
+                <button type="button" id="btn-apply-dates" class="px-2 py-0.5 rounded-md bg-[var(--primary-accent)] text-white text-[10px] font-bold hover:opacity-90 transition">
+                    OK
+                </button>
+            </div>
+
+            <!-- Theme Switcher (Dark / Light) -->
+            <button type="button" id="theme-toggle-btn" class="w-9 h-9 rounded-xl bg-[var(--bg-card)] border border-[var(--border-card)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition shrink-0" title="Changer de thème">
+                <svg class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</header>

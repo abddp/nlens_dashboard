@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nealens Dashboard</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+    <!-- Anti-flicker theme init -->
+    <script>
+        (function() {
+            try {
+                const storedTheme = localStorage.getItem('nealens_theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (storedTheme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                } else if (storedTheme === 'dark' || (!storedTheme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+</head>
+<body class="bg-[var(--bg-app)] text-[var(--text-main)] font-sans antialiased min-h-screen transition-colors duration-200">
+    <div class="min-h-screen flex">
+        <!-- Collapsible / Mobile Sidebar -->
+        {% include "components/sidebar.html" %}
+
+        <!-- Main Wrapper (Topbar + Content) -->
+        <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <!-- Top Navigation Bar -->
+            {% include "components/topbar.html" %}
+
+            <!-- Main Content Area -->
+            <main class="p-6 md:p-8 space-y-8 flex-1 max-w-[1600px] w-full mx-auto pb-16">
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{% static 'js/theme.js' %}"></script>
+    <script src="{% static 'js/charts.js' %}"></script>
+    <script src="{% static 'js/dashboard.js' %}"></script>
+</body>
+</html>

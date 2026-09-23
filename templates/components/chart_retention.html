@@ -1,0 +1,43 @@
+<!-- KPI 11: Rétention (Cohortes de Boutiques) -->
+<div class="group bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-[var(--primary-accent)]/30 transition-all duration-200" data-kpi-card="retention">
+    <!-- Header Row -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-1.5">
+            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">RÉTENTION PAR COHORTES</h3>
+            {% include "components/kpi_info_popover.html" with meaning="Taux de survie des boutiques regroupées par mois de 1ère souscription payante réelle (M0). Mesure la fidélité sans dilution." formula="(Boutiques actives à M_k / Taille initiale cohorte N_0) × 100" source="billing_transactions (M0) + subscriptions" %}
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Discreet Legend -->
+            <div class="hidden sm:flex items-center gap-2 text-[10px] text-[var(--text-faint)] font-medium select-none">
+                <span class="inline-block w-2.5 h-2.5 rounded bg-[var(--primary-accent)] opacity-80"></span>
+                <span>Taux de survie M<sub>n</sub></span>
+            </div>
+            <!-- Export JSON Button -->
+            <button type="button" data-export-kpi="retention" class="p-1.5 rounded-lg bg-[var(--bg-card-raised)] hover:bg-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--primary-accent)] transition-colors cursor-pointer" title="Exporter les données de cohortes (JSON)">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Headline Value (M1 Average Retention) -->
+    <div class="mb-4 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-baseline gap-2">
+            <div id="retention-chart-headline" class="text-xl md:text-2xl font-black text-[var(--text-main)] tracking-tight">
+                <span class="skeleton inline-block h-7 w-20 rounded-lg"></span>
+            </div>
+            <span class="text-[11px] font-semibold text-[var(--text-muted)]">Rétention moyenne M<sub>1</sub></span>
+            <span id="retention-sample-badge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-bold border border-amber-500/20" title="Échantillon préliminaire : volume faible (< 5 boutiques)">Échantillon préliminaire</span>
+        </div>
+        <div id="retention-chart-variation" class="text-xs font-bold"></div>
+    </div>
+
+    <!-- Cohort Heatmap Canvas Container -->
+    <div class="relative w-full h-64 select-none overflow-x-auto" id="retention-chart-wrapper">
+        <div id="retention-chart-skeleton" class="skeleton w-full h-full rounded-xl flex items-center justify-center">
+            <span class="text-xs text-[var(--text-faint)] font-semibold">Chargement des cohortes...</span>
+        </div>
+        <div id="retention-chart-container" class="w-full h-full hidden overflow-y-auto"></div>
+    </div>
+</div>

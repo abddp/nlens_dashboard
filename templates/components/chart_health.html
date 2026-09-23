@@ -1,0 +1,63 @@
+<!-- SaaS Health & Retention Funnel Component -->
+<div class="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">SAAS HEALTH & RETENTION</h3>
+            <span class="text-xs text-[var(--text-faint)] cursor-pointer" title="Onboarding conversion, churn and net retention index">ⓘ</span>
+        </div>
+        <div class="flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            ● Healthy
+        </div>
+    </div>
+
+    <!-- 3 Core Metrics Grid -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="p-3 rounded-xl bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] text-center">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-[var(--text-faint)] block mb-1">Activation</span>
+            <span id="health-activation-val" class="text-base lg:text-lg font-black text-[var(--text-main)]">
+                <span class="skeleton inline-block h-6 w-12 rounded"></span>
+            </span>
+            <span class="text-[9px] text-[var(--text-muted)] block mt-0.5">Onboarding</span>
+        </div>
+
+        <div class="p-3 rounded-xl bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] text-center">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-[var(--text-faint)] block mb-1">Churn Rate</span>
+            <span id="health-churn-val" class="text-base lg:text-lg font-black text-rose-500">
+                <span class="skeleton inline-block h-6 w-12 rounded"></span>
+            </span>
+            <span id="health-churn-count" class="text-[9px] text-[var(--text-muted)] block mt-0.5">Canceled</span>
+        </div>
+
+        <div class="p-3 rounded-xl bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] text-center">
+            <span class="text-[10px] uppercase tracking-wider font-bold text-[var(--text-faint)] block mb-1">Retention</span>
+            <span id="health-retention-val" class="text-base lg:text-lg font-black text-emerald-400">
+                <span class="skeleton inline-block h-6 w-12 rounded"></span>
+            </span>
+            <span class="text-[9px] text-[var(--text-muted)] block mt-0.5">Net Retention</span>
+        </div>
+    </div>
+
+    <!-- Visual Progress Bars for Health -->
+    <div class="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
+        <div>
+            <div class="flex justify-between text-[11px] font-semibold text-[var(--text-muted)] mb-1">
+                <span>Onboarding Conversion</span>
+                <span id="progress-activation-label" class="text-[var(--text-main)]">0%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[var(--bg-card-raised)] overflow-hidden">
+                <div id="progress-activation-bar" class="h-full bg-[var(--primary-accent)] rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[11px] font-semibold text-[var(--text-muted)] mb-1">
+                <span>Platform Retention Index</span>
+                <span id="progress-retention-label" class="text-emerald-400">0%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[var(--bg-card-raised)] overflow-hidden">
+                <div id="progress-retention-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+</div>

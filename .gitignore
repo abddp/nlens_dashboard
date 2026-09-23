@@ -1,0 +1,10 @@
+.venv/
+db.sqilite3
+TODO
+core/.env
+__pycache__/
+
+# Tailwindcss
+node_modules/
+package-lock.json
+package.json

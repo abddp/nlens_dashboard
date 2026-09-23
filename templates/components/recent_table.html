@@ -1,0 +1,59 @@
+<!-- Recent Billing Transactions Table -->
+<div id="section-transactions" class="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm">
+    <!-- Header with Search and Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div class="flex items-center gap-2">
+            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">RECENT BILLING TRANSACTIONS</h3>
+            <span class="text-xs text-[var(--text-faint)] cursor-pointer" title="Real-time billing transactions and subscription events from nlensql">ⓘ</span>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Table Search Input -->
+            <div class="relative">
+                <svg class="w-3.5 h-3.5 text-[var(--text-faint)] absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" id="transactions-search-input" placeholder="Search store or ID..." class="pl-8 pr-3 py-1.5 rounded-xl bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary-accent)]/50 transition w-48 sm:w-64">
+            </div>
+
+            <!-- Action Button -->
+            <button type="button" id="btn-export-transactions" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-card-raised)] hover:bg-[var(--border-subtle)] border border-[var(--border-card)] text-[var(--text-main)] text-xs font-semibold transition cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Export</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Data Table Container -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+            <thead>
+                <tr class="border-b border-[var(--border-subtle)] text-[var(--text-faint)] uppercase text-[10px] tracking-wider select-none">
+                    <th class="py-3 px-3 w-8"><input type="checkbox" class="rounded bg-[var(--bg-card-raised)] border-[var(--border-subtle)] text-[var(--primary-accent)] cursor-pointer"></th>
+                    <th class="py-3 px-3 font-semibold">TRANSACTION ID</th>
+                    <th class="py-3 px-4 font-semibold">STORE / BOUTIQUE</th>
+                    <th class="py-3 px-4 font-semibold">BILLING TYPE</th>
+                    <th class="py-3 px-4 font-semibold">STATUS</th>
+                    <th class="py-3 px-4 font-semibold">DATE & TIME</th>
+                    <th class="py-3 px-4 font-semibold text-right">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody id="recent-transactions-tbody" class="divide-y divide-[var(--border-subtle)] text-[var(--text-main)]">
+                <!-- Skeleton rows initially -->
+                {% for i in "12345" %}
+                <tr class="animate-pulse">
+                    <td class="py-3.5 px-3"><div class="skeleton h-3.5 w-3.5 rounded"></div></td>
+                    <td class="py-3.5 px-3"><div class="skeleton h-4 w-12 rounded"></div></td>
+                    <td class="py-3.5 px-4"><div class="skeleton h-4 w-32 rounded"></div></td>
+                    <td class="py-3.5 px-4"><div class="skeleton h-4 w-24 rounded"></div></td>
+                    <td class="py-3.5 px-4"><div class="skeleton h-4 w-16 rounded-full"></div></td>
+                    <td class="py-3.5 px-4"><div class="skeleton h-4 w-24 rounded"></div></td>
+                    <td class="py-3.5 px-4 text-right"><div class="skeleton h-4 w-16 rounded ml-auto"></div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

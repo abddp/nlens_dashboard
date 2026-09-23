@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8 pb-16">
+    <!-- Top Summary Card (AI Hero KPI) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        {% include "components/kpi_card.html" with kpi_id="ai-credits" title="CRÉDITS IA CONSOMMÉS" sub_unit="" %}
+        {% include "components/kpi_card.html" with kpi_id="time-spent" title="TEMPS MOYEN PAR SESSION" sub_unit="" %}
+        {% include "components/kpi_card.html" with kpi_id="feedback" title="FEEDBACKS SUR L'ASSISTANT" sub_unit="Retours" %}
+    </div>
+
+    <!-- Section: Consommation & Répartition Thématique IA -->
+    <div class="space-y-6 pt-2">
+        <div class="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Performances & Usages de l'Intelligence Artificielle</h2>
+        </div>
+        
+        <div class="space-y-6">
+            <div class="w-full">{% include "components/chart_ai_usage.html" %}</div>
+            <div class="w-full">{% include "components/chart_ai_categories.html" %}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

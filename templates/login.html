@@ -1,0 +1,240 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+    <!-- Anti-flicker theme init -->
+    <script>
+        (function() {
+            try {
+                const storedTheme = localStorage.getItem('nealens_theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (storedTheme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                } else if (storedTheme === 'dark' || (!storedTheme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+</head>
+<body class="bg-[var(--bg-app)] text-[var(--text-main)] font-sans antialiased min-h-screen flex items-center justify-center p-4 transition-colors duration-200">
+    
+    <!-- Theme Switcher floating top-right -->
+    <div class="fixed top-6 right-6 z-20">
+        <button type="button" id="theme-toggle-btn" class="w-10 h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border-card)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition shadow-sm cursor-pointer" title="Toggle theme">
+            <svg class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Login Container -->
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="flex flex-col items-center mb-6">
+            <h1 class="text-xl font-bold text-[var(--text-main)] tracking-tight">Sign In</h1>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 sm:p-8 shadow-sm">
+            <!-- Error Banner -->
+            <div id="login-error-banner" class="hidden mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-medium flex items-start gap-2.5">
+                <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="login-error-text">An error occurred.</span>
+            </div>
+
+            <!-- Form -->
+            <form id="login-form" class="space-y-4" novalidate>
+                {% csrf_token %}
+                <input type="hidden" id="next-url" value="{{ next }}">
+
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
+                        Email
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--text-faint)]">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                            </svg>
+                        </div>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            required 
+                            autocomplete="email"
+                            placeholder="name@example.com"
+                            class="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] rounded-xl text-xs text-[var(--text-main)] placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary-accent)] transition"
+                        >
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
+                        Password
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--text-faint)]">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            required 
+                            autocomplete="current-password"
+                            placeholder="••••••••"
+                            class="w-full pl-10 pr-10 py-2.5 bg-[var(--bg-card-raised)] border border-[var(--border-subtle)] rounded-xl text-xs text-[var(--text-main)] placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary-accent)] transition"
+                        >
+                        <button 
+                            type="button" 
+                            id="toggle-password-btn" 
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-faint)] hover:text-[var(--text-main)] transition cursor-pointer" 
+                            title="Show/Hide password"
+                        >
+                            <svg id="eye-icon-show" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-icon-hide" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="submit-btn" 
+                    class="w-full py-2.5 px-4 bg-[var(--primary-accent)] hover:opacity-90 text-white text-xs font-semibold rounded-xl shadow-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                >
+                    <span id="btn-text">Sign In</span>
+                    <svg id="btn-spinner" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{% static 'js/theme.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('login-form');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const nextInput = document.getElementById('next-url');
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            const errorBanner = document.getElementById('login-error-banner');
+            const errorText = document.getElementById('login-error-text');
+            const togglePasswordBtn = document.getElementById('toggle-password-btn');
+            const eyeShow = document.getElementById('eye-icon-show');
+            const eyeHide = document.getElementById('eye-icon-hide');
+
+            // Toggle Password Visibility
+            togglePasswordBtn.addEventListener('click', () => {
+                const isPassword = passwordInput.type === 'password';
+                passwordInput.type = isPassword ? 'text' : 'password';
+                eyeShow.classList.toggle('hidden', isPassword);
+                eyeHide.classList.toggle('hidden', !isPassword);
+            });
+
+            // Get CSRF Token from cookie or hidden input
+            function getCsrfToken() {
+                const tokenInput = form.querySelector('[name=csrfmiddlewaretoken]');
+                if (tokenInput) return tokenInput.value;
+                const match = document.cookie.match(/csrftoken=([^;]+)/);
+                return match ? match[1] : '';
+            }
+
+            function showError(message) {
+                errorText.textContent = message;
+                errorBanner.classList.remove('hidden');
+            }
+
+            function hideError() {
+                errorBanner.classList.add('hidden');
+            }
+
+            function setLoading(isLoading) {
+                submitBtn.disabled = isLoading;
+                if (isLoading) {
+                    btnText.textContent = 'Signing in...';
+                    btnSpinner.classList.remove('hidden');
+                } else {
+                    btnText.textContent = 'Sign In';
+                    btnSpinner.classList.add('hidden');
+                }
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideError();
+
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                const nextUrl = nextInput.value.trim() || '/';
+
+                if (!email || !password) {
+                    showError('Please enter your email and password.');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const response = await fetch('/api/auth/login/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        },
+                        body: JSON.stringify({ email, password, next: nextUrl })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        showError(data.error || 'Invalid credentials or access denied.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Success: redirect
+                    window.location.href = data.redirect_url || '/';
+                } catch (err) {
+                    showError('Network error. Please try again.');
+                    setLoading(false);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

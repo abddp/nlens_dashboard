@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8 pb-16">
+    <!-- Top Summary Cards (Engagement & Activity KPIs) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {% include "components/kpi_card.html" with kpi_id="time-spent" title="TEMPS MOYEN PAR SESSION" sub_unit="" %}
+        {% include "components/kpi_card.html" with kpi_id="feedback" title="FEEDBACKS REÇUS" sub_unit="Retours" %}
+        {% include "components/kpi_card.html" with kpi_id="users" title="UTILISATEURS INSCRITS" sub_unit="Inscrits" %}
+    </div>
+
+    <!-- Section: Activité Métier & Adoption -->
+    <div class="space-y-6 pt-2">
+        <div class="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Activité Réelle des Marchands & Sessions</h2>
+        </div>
+        
+        <div class="space-y-6">
+            <div class="w-full">{% include "components/chart_active_users.html" %}</div>
+            <div class="w-full">{% include "components/chart_active_stores.html" %}</div>
+            <div class="w-full">{% include "components/chart_sessions.html" %}</div>
+            <div class="w-full">{% include "components/chart_activation.html" %}</div>
+            <div class="w-full">{% include "components/chart_signups.html" %}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --color-brand-primary: #ff6b00;
+  --color-brand-accent: #ff8533;
+  --color-brand-glow: rgba(255, 107, 0, 0.25);
+}
+
+:root {
+  --bg-app: #f4f5f8;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-raised: #f8f9fc;
+  --border-subtle: #e5e7eb;
+  --border-card: #e2e4e9;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --primary-accent: #ff6b00;
+  --primary-glow: rgba(255, 107, 0, 0.15);
+  
+  /* Matrix Chart Tokens */
+  --chart-matrix-empty: #f1f3f7;
+  --chart-matrix-filled-primary: #ff6b00;
+  --chart-matrix-filled-secondary: #cbd5e1;
+  --chart-bar-thin: #ff6b00;
+  --chart-grid-line: #e5e7eb;
+  --chart-tooltip-bg: #1f2937;
+  --chart-tooltip-text: #ffffff;
+
+  /* Status Tokens */
+  --status-success-bg: rgba(16, 185, 129, 0.12);
+  --status-success-text: #059669;
+  --status-pending-bg: rgba(245, 158, 11, 0.12);
+  --status-pending-text: #d97706;
+  --status-refunded-bg: rgba(107, 114, 128, 0.12);
+  --status-refunded-text: #4b5563;
+  --status-failed-bg: rgba(239, 68, 68, 0.12);
+  --status-failed-text: #dc2626;
+  
+  --skeleton-bg: #e5e7eb;
+}
+
+.dark {
+  --bg-app: #121316;
+  --bg-sidebar: #17181d;
+  --bg-card: #1a1b21;
+  --bg-card-raised: #21232a;
+  --border-subtle: #23252f;
+  --border-card: #272833;
+  --text-main: #f9fafb;
+  --text-muted: #848796;
+  --text-faint: #595c6c;
+  --primary-accent: #ff6b00;
+  --primary-glow: rgba(255, 107, 0, 0.28);
+  
+  /* Matrix Chart Tokens */
+  --chart-matrix-empty: #22232c;
+  --chart-matrix-filled-primary: #ff6b00;
+  --chart-matrix-filled-secondary: #3b3d4a;
+  --chart-bar-thin: #ff6b00;
+  --chart-grid-line: #22232c;
+  --chart-tooltip-bg: #22242c;
+  --chart-tooltip-text: #f9fafb;
+
+  /* Status Tokens */
+  --status-success-bg: rgba(16, 185, 129, 0.18);
+  --status-success-text: #34d399;
+  --status-pending-bg: rgba(245, 158, 11, 0.18);
+  --status-pending-text: #fbbf24;
+  --status-refunded-bg: rgba(148, 163, 184, 0.18);
+  --status-refunded-text: #cbd5e1;
+  --status-failed-bg: rgba(239, 68, 68, 0.18);
+  --status-failed-text: #f87171;
+  
+  --skeleton-bg: #21232a;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.skeleton {
+  background-color: var(--skeleton-bg);
+  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-radius: 0.375rem;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}

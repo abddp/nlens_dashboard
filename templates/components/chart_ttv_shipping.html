@@ -1,0 +1,32 @@
+<!-- Chart: Time to First Shipping Zone Creation (Histogram) -->
+<div class="group bg-[var(--bg-card)] border border-[var(--border-card)] rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-[var(--primary-accent)]/30 transition-all duration-200" data-kpi-card="ttv-shipping">
+    <!-- Header Row -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-1.5">
+            <h3 class="text-xs uppercase tracking-wider font-extrabold text-[var(--text-muted)]">Délai avant 1ère Zone de Livraison</h3>
+            {% include "components/kpi_info_popover.html" with meaning="Distribution du temps nécessaire pour paramétrer les zones géographiques d'expédition et tarifs de livraison." formula="MIN(created_at - shop_created_on) WHERE event = 'create_shipping_zone'" source="user_session_events ⨝ shops" %}
+        </div>
+        <div class="flex items-center gap-3">
+            <button type="button" data-export-kpi="ttv-shipping" class="p-1.5 rounded-lg bg-[var(--bg-card-raised)] hover:bg-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--primary-accent)] transition-colors cursor-pointer" title="Exporter les données (JSON)">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Headline Value -->
+    <div class="mb-4 flex items-baseline justify-between">
+        <div id="ttv-shipping-chart-headline" class="text-xl md:text-2xl font-black text-[var(--text-main)] tracking-tight">
+            <span class="skeleton inline-block h-7 w-28 rounded-lg"></span>
+        </div>
+    </div>
+
+    <!-- Chart Canvas Container -->
+    <div class="relative w-full h-60 select-none" id="ttv-shipping-chart-wrapper">
+        <div id="ttv-shipping-chart-skeleton" class="skeleton w-full h-full rounded-xl flex items-center justify-center">
+            <span class="text-xs text-[var(--text-faint)] font-semibold">Chargement des délais de livraison...</span>
+        </div>
+        <div id="ttv-shipping-chart-container" class="w-full h-full hidden"></div>
+    </div>
+</div>

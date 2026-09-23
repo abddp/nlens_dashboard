@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8 pb-16">
+    <!-- Section: Parcours Marchand, Vélocité & Moyens de Paiement -->
+    <div class="space-y-6">
+        <div class="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Parcours Marchand, Vélocité d'Activation & Moyens de Paiement</h2>
+        </div>
+        
+        <div class="space-y-6">
+            <!-- Taux d'Adoption Onboarding (Courbes %) -->
+            <div class="w-full">{% include "components/chart_publish_rate.html" %}</div>
+            <div class="w-full">{% include "components/chart_payment_rate.html" %}</div>
+            <div class="w-full">{% include "components/chart_shipping_rate.html" %}</div>
+            
+            <!-- Délais d'Activation Time-to-Value (5 Histogrammes) -->
+            <div class="w-full">{% include "components/chart_ttv_product.html" %}</div>
+            <div class="w-full">{% include "components/chart_ttv_storefront.html" %}</div>
+            <div class="w-full">{% include "components/chart_ttv_publish.html" %}</div>
+            <div class="w-full">{% include "components/chart_ttv_payment.html" %}</div>
+            <div class="w-full">{% include "components/chart_ttv_shipping.html" %}</div>
+
+            <!-- Répartition des Prestataires de Paiement -->
+            <div class="w-full">{% include "components/chart_payment_types.html" %}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
