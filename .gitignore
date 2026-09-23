@@ -12,8 +12,10 @@ package.json
 
 # celery beat
 celerybeat-schedule
+celerybeat-schedule-wal
 celerybeat-schedule.db
 celerybeat.pid
+celerybeat-schedule-shm
 
 # Logs
 logs/*
